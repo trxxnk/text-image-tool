@@ -3,28 +3,27 @@ import os
 
 def main(page: ft.Page):
     # Настройка страницы
-    page.title = "Загрузка изображения"
+    page.adaptive = True
+    page.title = "Ввод граничных точек"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
 
-    # Списки для хранения точек разных цветов
-    points_lists = {
-        "Красный": [],
-        "Синий": [],
-        "Зеленый": [],
-        "Желтый": []
-    }
-    
-    # Цвета для точек
+    # Названия границ
+    border_names = ["Верхняя", "Нижняя", "Левая", "Правая"]
+
+    # Списки для хранения точек разных границ
+    points_lists = {name: [] for name in border_names}
+
+    # Цвета для границ
     colors = {
-        "Красный": ft.Colors.RED,
-        "Синий": ft.Colors.BLUE,
-        "Зеленый": ft.Colors.GREEN,
-        "Желтый": ft.Colors.YELLOW
+        "Верхняя": ft.Colors.RED,
+        "Нижняя": ft.Colors.BLUE,
+        "Левая": ft.Colors.GREEN,
+        "Правая": ft.Colors.ORANGE
     }
-    
-    # Текущий выбранный цвет
-    current_color = "Красный"
+
+    # Текущая выбранная граница
+    current_border = "Верхняя"
 
     # Создаем область для отображения изображения
     image_display = ft.Image(
@@ -41,17 +40,40 @@ def main(page: ft.Page):
         height=image_display.height
     )
 
-    # Функция для обновления размеров изображения
+    # Для правой панели: отдельный список для отображения точек после построения сетки
+    built_points = {name: [] for name in border_names}
+
+    # Дубликат изображения для правой панели
+    image_display_right = ft.Image(
+        fit=ft.ImageFit.CONTAIN,
+        visible=False
+    )
+
+    # Stack для правой панели
+    image_stack_right = ft.Stack(
+        [
+            image_display_right,
+        ],
+        width=None,
+        height=None
+    )
+
+    # Функция для обновления размеров изображений и стэков
     def update_image_size(e=None):
         window_width = page.width
         window_height = page.height
-        image_display.width = int(window_width * 0.7)
-        image_display.height = int(window_height * 0.7)
-        image_stack.width = image_display.width
-        image_stack.height = image_display.height
+        img_w = int(window_width * 0.3)
+        img_h = int(window_height * 0.5)
+        for img, stack in [
+            (image_display, image_stack),
+            (image_display_right, image_stack_right)
+        ]:
+            img.width = img_w
+            img.height = img_h
+            stack.width = img_w
+            stack.height = img_h
         page.update()
 
-    # Подписываемся на изменение размера окна
     page.on_resize = update_image_size
 
     # Функция для обработки клика по изображению
@@ -64,7 +86,7 @@ def main(page: ft.Page):
             # Создаем точку
             point = ft.Container(
                 content=ft.CircleAvatar(
-                    bgcolor=colors[current_color],
+                    bgcolor=colors[current_border],
                     radius=5,
                 ),
                 left = x - 5,  # Центрируем точку относительно клика
@@ -72,7 +94,7 @@ def main(page: ft.Page):
             )
             
             # Добавляем точку в соответствующий список и на изображение
-            points_lists[current_color].append(point)
+            points_lists[current_border].append(point)
             image_stack.controls.append(point)
             page.update()
             
@@ -91,14 +113,15 @@ def main(page: ft.Page):
         if e.files:
             file_path = e.files[0].path
             if file_path:
-                # Очищаем все точки
-                for color in points_lists:
-                    points_lists[color].clear()
+                for border in points_lists:
+                    points_lists[border].clear()
+                    built_points[border].clear()
                 image_stack.controls = [image_display]
-                
-                # Обновляем изображение
+                image_stack_right.controls = [image_display_right]
                 image_display.src = file_path
                 image_display.visible = True
+                image_display_right.src = file_path
+                image_display_right.visible = True
                 update_image_size()
                 update_coords_text()
                 page.update()
@@ -119,40 +142,26 @@ def main(page: ft.Page):
         )
     )
 
-    # Создаем текстовые поля для каждого цвета
+    # Создаем текстовые поля для каждой границы
     coords_texts = {
-        color: ft.Text(f"{color}: ", size=16, color=colors[color]) 
-        for color in colors.keys()
+        name: ft.Text(f"{name}: ", size=16, color=colors[name]) 
+        for name in border_names
     }
 
     # Обновление текста с координатами
     def update_coords_text():
-        for color, points in points_lists.items():
+        for border, points in points_lists.items():
             if points:
                 coords = ", ".join(f"({p.left + 5:.0f},{p.top + 5:.0f})" for p in points)
-                coords_texts[color].value = f"{color}: {coords}"
+                coords_texts[border].value = f"{border}: {coords}"
             else:
-                coords_texts[color].value = f"{color}: нет точек"
+                coords_texts[border].value = f"{border}: нет точек"
         page.update()
-
-    # Создаем переключатель цветов
-    def color_changed(e):
-        nonlocal current_color
-        current_color = e.control.value
-        page.update()
-
-    color_selector = ft.RadioGroup(
-        content=ft.Row([
-            ft.Radio(value=color, label=color) for color in colors.keys()
-        ], alignment=ft.MainAxisAlignment.CENTER),
-        value=current_color,
-        on_change=color_changed
-    )
 
     # Кнопка для очистки точек
     def clear_points(e):
-        for color in points_lists:
-            points_lists[color].clear()
+        for border in points_lists:
+            points_lists[border].clear()
         image_stack.controls = [image_display]
         page.update()
         update_coords_text()
@@ -163,35 +172,120 @@ def main(page: ft.Page):
         icon=ft.Icons.DELETE,
     )
 
-    # Добавляем элементы на страницу
-    page.add(
-        ft.Column(
-            [
-                ft.Text("Загрузка изображения", size=30, weight=ft.FontWeight.BOLD),
-                upload_button,
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text("Выберите цвет точек:", size=16),
-                        color_selector
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    alignment=ft.alignment.center
-                ),
-                gesture,
-                clear_button,
-                ft.Container(
-                    content=ft.Column([
-                        coords_texts[color] for color in colors.keys()
-                    ], spacing=5),
-                    padding=10,
-                    border=ft.border.all(1, ft.Colors.GREY_400),
-                    border_radius=5
+    # Обработчик изменения границы для Dropdown
+    def border_changed(e):
+        nonlocal current_border
+        current_border = e.control.value
+        page.update()
+
+    # Выпадающее меню для выбора границы
+    border_selector = ft.Dropdown(
+        options=[
+            ft.dropdown.Option(key=name, text=name) for name in border_names
+        ],
+        value=current_border,
+        on_change=border_changed,
+        width=150
+    )
+
+    # Блок выбора границы и кнопок
+    border_and_buttons_row = ft.Row(
+        [
+            ft.Column([
+                ft.Text("Текущая граница:", size=16),
+                border_selector
+            ], spacing=5),
+            ft.Column(
+                [
+                    upload_button,
+                    clear_button
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=10
+            )
+        ],
+        alignment=ft.MainAxisAlignment.CENTER,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        spacing=20
+    )
+
+    # Кнопка "Построить криволинейную сетку"
+    def build_grid(e):
+        # Очищаем старые точки
+        for border in built_points:
+            built_points[border].clear()
+        image_stack_right.controls = [image_display_right]
+        # Копируем точки из левой панели
+        for border, points in points_lists.items():
+            for p in points:
+                # Копируем координаты и цвет
+                new_point = ft.Container(
+                    content=ft.CircleAvatar(
+                        bgcolor=colors[border],
+                        radius=5,
+                    ),
+                    left=p.left,
+                    top=p.top,
                 )
+                built_points[border].append(new_point)
+                image_stack_right.controls.append(new_point)
+        page.update()
+
+    build_button = ft.ElevatedButton(
+        "Построить криволинейную сетку",
+        icon=ft.Icons.GRID_4X4,
+        on_click=build_grid
+    )
+
+    # Левая панель
+    left_panel = ft.Column(
+        [
+            ft.Text("Ввод граничных точек", size=30, weight=ft.FontWeight.BOLD),
+            # Блок выбора границы и кнопок
+            border_and_buttons_row,
+            gesture,
+            ft.Container(
+                content=ft.Column([
+                    coords_texts[name] for name in border_names
+                ], spacing=5),
+                padding=10,
+                border=ft.border.all(1, ft.Colors.GREY_400),
+                border_radius=5
+            )
+        ],
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        expand=True,
+        spacing=15
+    )
+
+    # Правая панель
+    right_panel = ft.Column(
+        [
+            ft.Text("Криволинейная сетка", size=30, weight=ft.FontWeight.BOLD),
+            build_button,
+            image_stack_right
+        ],
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        expand=True,
+        spacing=15
+    )
+
+    # Основной layout
+    page.add(
+        ft.Row(
+            [
+                ft.Container(left_panel, expand=True, padding=10),
+                ft.Container(right_panel, expand=True, padding=10)
             ],
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER
+            expand=True,
+            vertical_alignment=ft.CrossAxisAlignment.START
         )
     )
 
     # Устанавливаем начальные размеры
     update_image_size()
 
-ft.app(target=main)
+
+if __name__ == "__main__":
+    ft.app(target=main)
