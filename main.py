@@ -1,5 +1,7 @@
 import flet as ft
-import os
+from flet import canvas as cv
+import numpy as np
+from app.utils import build_mesh_function, preprocess_edges
 
 def main(page: ft.Page):
     # Настройка страницы
@@ -9,21 +11,21 @@ def main(page: ft.Page):
     page.padding = 20
 
     # Названия границ
-    border_names = ["Верхняя", "Нижняя", "Левая", "Правая"]
+    border_names = ["edge_top", "edge_bottom", "edge_left", "edge_right"]
 
     # Списки для хранения точек разных границ
     points_lists = {name: [] for name in border_names}
 
     # Цвета для границ
     colors = {
-        "Верхняя": ft.Colors.RED,
-        "Нижняя": ft.Colors.BLUE,
-        "Левая": ft.Colors.GREEN,
-        "Правая": ft.Colors.ORANGE
+        "edge_top": ft.Colors.RED,
+        "edge_bottom": ft.Colors.BLUE,
+        "edge_left": ft.Colors.GREEN,
+        "edge_right": ft.Colors.ORANGE
     }
 
     # Текущая выбранная граница
-    current_border = "Верхняя"
+    current_border = "edge_top"
 
     # Создаем область для отображения изображения
     image_display = ft.Image(
@@ -94,7 +96,7 @@ def main(page: ft.Page):
             )
             
             # Добавляем точку в соответствующий список и на изображение
-            points_lists[current_border].append(point)
+            points_lists[current_border].append((x, y))
             image_stack.controls.append(point)
             page.update()
             
@@ -152,7 +154,7 @@ def main(page: ft.Page):
     def update_coords_text():
         for border, points in points_lists.items():
             if points:
-                coords = ", ".join(f"({p.left + 5:.0f},{p.top + 5:.0f})" for p in points)
+                coords = ", ".join("({:.0f} , {:.0f})".format(*p) for p in points)
                 coords_texts[border].value = f"{border}: {coords}"
             else:
                 coords_texts[border].value = f"{border}: нет точек"
@@ -216,6 +218,7 @@ def main(page: ft.Page):
         for border in built_points:
             built_points[border].clear()
         image_stack_right.controls = [image_display_right]
+        
         # Копируем точки из левой панели
         for border, points in points_lists.items():
             for p in points:
@@ -225,11 +228,60 @@ def main(page: ft.Page):
                         bgcolor=colors[border],
                         radius=5,
                     ),
-                    left=p.left,
-                    top=p.top,
+                    left=p[0],
+                    top=p[1],
                 )
-                built_points[border].append(new_point)
+                # built_points[border].append(new_point)
                 image_stack_right.controls.append(new_point)
+                
+        # Строим функцию криволинейной сетки
+        edge_top, edge_bottom, edge_left, edge_right = preprocess_edges(**points_lists)
+        mesh_func = build_mesh_function(edge_top, edge_bottom, edge_left, edge_right)
+        
+        # Параметры сетки
+        n_points = 10
+        s_values = np.linspace(0, 1, n_points)
+        t_values = np.linspace(0, 1, n_points)
+        
+        # Создаем сетку параметров
+        s_grid, t_grid = np.meshgrid(s_values, t_values)
+
+        # Векторизуем функцию mesh_point
+        vectorized_mesh = np.vectorize(lambda s, t: mesh_func(s, t), signature='(),()->(n)')
+
+        # Применяем к сетке параметров
+        grid_points: np.ndarray = vectorized_mesh(s_grid, t_grid)
+        grid_hlines = grid_points.tolist()
+        grid_vlines = grid_points.swapaxes(0, 1).tolist()
+        
+        # Создание холста для отображения сетки
+        edge_width = 3
+        edge_top_paint = ft.Paint(stroke_width=edge_width, style=ft.PaintingStyle.STROKE, color=ft.Colors.RED_600)
+        edge_bottom_paint = ft.Paint(stroke_width=edge_width, style=ft.PaintingStyle.STROKE, color=ft.Colors.BLUE_600)
+        edge_left_paint = ft.Paint(stroke_width=edge_width, style=ft.PaintingStyle.STROKE, color=ft.Colors.GREEN_600)
+        edge_right_paint = ft.Paint(stroke_width=edge_width, style=ft.PaintingStyle.STROKE, color=ft.Colors.ORANGE_600)
+        
+        grid_lines_width = 1
+        grid_hlines_paint = ft.Paint(stroke_width=grid_lines_width, style=ft.PaintingStyle.STROKE, color=ft.Colors.BLUE_500)
+        grid_vlines_paint = ft.Paint(stroke_width=grid_lines_width, style=ft.PaintingStyle.STROKE, color=ft.Colors.RED_500)
+        
+        mesh_canvas = cv.Canvas(
+            [
+                cv.Points(edge_top, point_mode=cv.PointMode.POLYGON, paint=edge_top_paint),
+                cv.Points(edge_bottom, point_mode=cv.PointMode.POLYGON, paint=edge_bottom_paint),
+                cv.Points(edge_left, point_mode=cv.PointMode.POLYGON, paint=edge_left_paint),
+                cv.Points(edge_right, point_mode=cv.PointMode.POLYGON, paint=edge_right_paint),
+                *[cv.Points(line, point_mode=cv.PointMode.POLYGON, paint=grid_vlines_paint)
+                  for line in grid_vlines],
+                *[cv.Points(line, point_mode=cv.PointMode.POLYGON, paint=grid_hlines_paint)
+                  for line in grid_hlines],
+            ],
+            width=float("inf"),
+            expand=True,
+        )
+        
+        image_stack_right.controls.append(mesh_canvas)
+    
         page.update()
 
     build_button = ft.ElevatedButton(
@@ -264,7 +316,7 @@ def main(page: ft.Page):
         [
             ft.Text("Криволинейная сетка", size=30, weight=ft.FontWeight.BOLD),
             build_button,
-            image_stack_right
+            image_stack_right,
         ],
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         expand=True,
