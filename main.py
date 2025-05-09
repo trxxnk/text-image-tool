@@ -5,7 +5,6 @@ from app.utils import build_mesh_function, preprocess_edges
 
 def main(page: ft.Page):
     # Настройка страницы
-    page.adaptive = True
     page.title = "Ввод граничных точек"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
@@ -30,7 +29,8 @@ def main(page: ft.Page):
     # Создаем область для отображения изображения
     image_display = ft.Image(
         fit=ft.ImageFit.CONTAIN,
-        visible=False
+        visible=False,
+        height=page.height * 0.5
     )
     
     # Создаем Stack для наложения точек на изображение
@@ -38,8 +38,6 @@ def main(page: ft.Page):
         [
             image_display,
         ],
-        width=image_display.width,
-        height=image_display.height
     )
 
     # Для правой панели: отдельный список для отображения точек после построения сетки
@@ -48,7 +46,8 @@ def main(page: ft.Page):
     # Дубликат изображения для правой панели
     image_display_right = ft.Image(
         fit=ft.ImageFit.CONTAIN,
-        visible=False
+        visible=False,
+        height=page.height * 0.5
     )
 
     # Stack для правой панели
@@ -56,27 +55,7 @@ def main(page: ft.Page):
         [
             image_display_right,
         ],
-        width=None,
-        height=None
     )
-
-    # Функция для обновления размеров изображений и стэков
-    def update_image_size(e=None):
-        window_width = page.width
-        window_height = page.height
-        img_w = int(window_width * 0.3)
-        img_h = int(window_height * 0.5)
-        for img, stack in [
-            (image_display, image_stack),
-            (image_display_right, image_stack_right)
-        ]:
-            img.width = img_w
-            img.height = img_h
-            stack.width = img_w
-            stack.height = img_h
-        page.update()
-
-    page.on_resize = update_image_size
 
     # Функция для обработки клика по изображению
     def handle_image_click(e: ft.TapEvent):
@@ -92,10 +71,9 @@ def main(page: ft.Page):
                     radius=5,
                 ),
                 left = x - 5,  # Центрируем точку относительно клика
-                top = y - 5,
+                top = y - 5
             )
-            
-            # Добавляем точку в соответствующий список и на изображение
+
             points_lists[current_border].append((x, y))
             image_stack.controls.append(point)
             page.update()
@@ -124,7 +102,11 @@ def main(page: ft.Page):
                 image_display.visible = True
                 image_display_right.src = file_path
                 image_display_right.visible = True
-                update_image_size()
+                
+                image_stack.width = image_display.width
+                image_stack.height = image_display.height
+                image_stack_right.width = image_display_right.width
+                image_stack_right.height = image_display_right.height
                 update_coords_text()
                 page.update()
 
@@ -228,8 +210,8 @@ def main(page: ft.Page):
                         bgcolor=colors[border],
                         radius=5,
                     ),
-                    left=p[0],
-                    top=p[1],
+                    left=p[0] - 5, # Центрирование круга от-но клика
+                    top=p[1] - 5,
                 )
                 # built_points[border].append(new_point)
                 image_stack_right.controls.append(new_point)
@@ -276,12 +258,28 @@ def main(page: ft.Page):
                 *[cv.Points(line, point_mode=cv.PointMode.POLYGON, paint=grid_hlines_paint)
                   for line in grid_hlines],
             ],
-            width=float("inf"),
-            expand=True,
+            width=image_display_right.width,
+            height=image_display_right.height,
+            left=0,
+            top=0
         )
         
+        # Сначала добавляем canvas с сеткой
         image_stack_right.controls.append(mesh_canvas)
-    
+        
+        # Затем добавляем точки поверх сетки
+        for border, points in points_lists.items():
+            for p in points:
+                new_point = ft.Container(
+                    content=ft.CircleAvatar(
+                        bgcolor=colors[border],
+                        radius=5,
+                    ),
+                    left=p[0] - 5,
+                    top=p[1] - 5,
+                )
+                image_stack_right.controls.append(new_point)
+
         page.update()
 
     build_button = ft.ElevatedButton(
@@ -334,9 +332,6 @@ def main(page: ft.Page):
             vertical_alignment=ft.CrossAxisAlignment.START
         )
     )
-
-    # Устанавливаем начальные размеры
-    update_image_size()
 
 
 if __name__ == "__main__":
