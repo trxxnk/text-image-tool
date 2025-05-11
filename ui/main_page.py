@@ -3,7 +3,9 @@ from flet import canvas as canv
 import cv2
 import tempfile
 import numpy as np
+import json
 from core.utils import build_mesh_function, preprocess_edges
+from datetime import datetime
 
 def create_main_page(page: ft.Page):
     # Названия границ
@@ -11,6 +13,7 @@ def create_main_page(page: ft.Page):
 
     # Списки для хранения точек разных границ
     points_lists = {name: [] for name in border_names}
+    edge_points_lists = {name: [] for name in border_names}
     
     # Цвета для границ
     colors = {
@@ -31,15 +34,18 @@ def create_main_page(page: ft.Page):
     current_image_path = None
 
     # Изображения для обоих режимов
+    RATIO = None
+    STACK_IMAGE_HEIGHT = page.height * 0.7
     image_display = ft.Image(
         fit=ft.ImageFit.CONTAIN,
         visible=False,
-        height=page.height * 0.7,
+        height=STACK_IMAGE_HEIGHT
     )
     
     # Stack для наложения точек на изображение
     image_stack = ft.Stack(
         [image_display],
+        height=STACK_IMAGE_HEIGHT
     )
 
     # Функция для обработки клика по изображению
@@ -48,18 +54,20 @@ def create_main_page(page: ft.Page):
             # Получаем координаты клика относительно изображения
             x = e.local_x
             y = e.local_y
-            
+
             # Создаем точку
             point = ft.Container(
                 content=ft.CircleAvatar(
                     bgcolor=colors[current_border],
-                    radius=5,
+                    radius=2,
                 ),
-                left = x - 5,  # Центрируем точку относительно клика
-                top = y - 5
+                left=e.local_x - 2,  # Используем оригинальные координаты для отображения
+                top=e.local_y - 2
             )
             
+            # Сохраняем координаты с учетом масштаба
             points_lists[current_border].append((x, y))
+            edge_points_lists[current_border].append((int((x * RATIO)), int((y * RATIO))))
             image_stack.controls.append(point)
             
             update_coords_text()
@@ -70,7 +78,8 @@ def create_main_page(page: ft.Page):
     gesture = ft.GestureDetector(
         mouse_cursor=ft.MouseCursor.CLICK,
         content=image_stack,
-        on_tap_up=handle_image_click
+        on_tap_up=handle_image_click,
+        height=STACK_IMAGE_HEIGHT
     )
 
     # Для правой панели: отдельный список для отображения точек после построения сетки
@@ -80,13 +89,13 @@ def create_main_page(page: ft.Page):
     image_display_left = ft.Image(
         fit=ft.ImageFit.CONTAIN,
         visible=False,
-        height=page.height * 0.7
+        height=STACK_IMAGE_HEIGHT
     )
     
     image_display_right = ft.Image(
         fit=ft.ImageFit.CONTAIN,
         visible=False,
-        height=page.height * 0.7
+        height=STACK_IMAGE_HEIGHT
     )
 
     # Stack для изображений в режиме просмотра
@@ -157,58 +166,73 @@ def create_main_page(page: ft.Page):
         dlg.open = True
         page.update()
 
+    def process_new_image(file_path):
+        # Сохраняем путь к текущему изображению
+        nonlocal current_image_path
+        current_image_path = file_path
+        
+        # Сбрасываем флаг построения сетки
+        nonlocal grid_built, show_grid
+        grid_built = False
+        show_grid = False
+        show_grid_checkbox.value = False
+        
+        for border in points_lists:
+            points_lists[border].clear()
+            edge_points_lists[border].clear()
+        
+        # Обновляем изображения для обоих режимов
+        image_stack.controls = [image_display]
+        image_display.src = file_path
+        image_display.visible = True
+        
+        image_stack_left.controls = [image_display_left]
+        image_display_left.src = file_path
+        image_display_left.visible = True
+        
+        # Создаем версию изображения с водяным знаком для правой панели
+        watermarked_image = add_watermark(file_path)
+        if watermarked_image:
+            image_display_right.src = watermarked_image
+        else:
+            image_display_right.src = file_path
+        
+        image_display_right.visible = True
+        
+        # Загружаем изображение для получения его размеров
+        img = cv2.imread(file_path)
+        if img is not None:
+            img_height, img_width = img.shape[:2]
+            # Вычисляем коэффициент масштабирования с учетом соотношения сторон
+            nonlocal RATIO
+            RATIO = img_height / image_stack.height
+        
+        # Настраиваем размеры стеков в соответствии с изображением
+        image_stack.width = image_display.width
+        image_stack.height = image_display.height
+        image_stack_left.width = image_display_left.width 
+        image_stack_left.height = image_display_left.height
+        image_stack_right.width = image_display_right.width
+        image_stack_right.height = image_display_right.height
+                
+                
     # Функция для обработки загрузки файла
     def handle_file_upload(e: ft.FilePickerResultEvent):
         if e.files:
             file_path = e.files[0].path
             if file_path:
-                # Сохраняем путь к текущему изображению
-                nonlocal current_image_path
-                current_image_path = file_path
-                
-                # Сбрасываем флаг построения сетки
-                nonlocal grid_built, show_grid
-                grid_built = False
-                show_grid = False
-                show_grid_checkbox.value = False
-                
-                for border in points_lists:
-                    points_lists[border].clear()
-                    built_points[border].clear()
-                
-                # Обновляем изображения для обоих режимов
-                image_stack.controls = [image_display]
-                image_display.src = file_path
-                image_display.visible = True
-                
-                image_stack_left.controls = [image_display_left]
-                image_display_left.src = file_path
-                image_display_left.visible = True
-                
-                # Создаем версию изображения с водяным знаком для правой панели
-                watermarked_image = add_watermark(file_path)
-                if watermarked_image:
-                    image_display_right.src = watermarked_image
-                else:
-                    image_display_right.src = file_path
-                
-                image_display_right.visible = True
-                
-                # Настраиваем размеры стеков в соответствии с изображением
-                image_stack.width = image_display.width
-                image_stack.height = image_display.height
-                image_stack_left.width = image_display_left.width 
-                image_stack_left.height = image_display_left.height
-                image_stack_right.width = image_display_right.width
-                image_stack_right.height = image_display_right.height
-                
+                process_new_image(file_path)
                 update_coords_text()
                 update_button_states()
                 page.update()
 
-    # Создаем FilePicker
+    # Создаем FilePicker'ы для всех операций с файлами
     file_picker = ft.FilePicker(on_result=handle_file_upload)
-    page.overlay.append(file_picker)
+    save_picker = ft.FilePicker()
+    load_picker = ft.FilePicker()
+    
+    # Добавляем все FilePicker'ы на страницу
+    page.overlay.extend([file_picker, save_picker, load_picker])
 
     # Создаем кнопку загрузки
     upload_button = ft.ElevatedButton(
@@ -458,13 +482,115 @@ def create_main_page(page: ft.Page):
         disabled=True  # Изначально неактивна
     )
     
-    # Функция обновления состояния кнопок
+    # Функция сохранения точек в JSON файл
+    def save_points_to_json(e):
+        if not current_image_path:
+            show_alert("Сначала загрузите изображение!")
+            return
+            
+        # Создаем структуру данных для сохранения
+        save_data = {
+            "points": edge_points_lists.copy(),
+            "image_path": current_image_path,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Создаем диалог сохранения файла
+        def handle_save(e: ft.FilePickerResultEvent):
+            if e.path:
+                try:
+                    with open(e.path, 'w', encoding='utf-8') as f:
+                        json.dump(save_data, f, indent=2)
+                    show_alert("Точки успешно сохранены!")
+                except Exception as e:
+                    show_alert(f"Ошибка при сохранении: {str(e)}")
+        
+        # Устанавливаем обработчик и открываем диалог сохранения
+        save_picker.on_result = handle_save
+        save_picker.save_file(
+            allowed_extensions=["json"],
+            file_name="points.json"
+        )
+
+    # Функция для загрузки точек из JSON файла
+    def load_points_from_json(e):
+        def handle_load(e: ft.FilePickerResultEvent):
+            if e.files:
+                try:
+                    with open(e.files[0].path, 'r', encoding='utf-8') as f:
+                        load_data: dict = json.load(f)
+                    
+                    # Проверяем наличие необходимых данных
+                    for edge_name in edge_points_lists.keys():
+                        if edge_name not in load_data["points"].keys():
+                            show_alert("Некорректный формат файла!")
+                            return
+                    
+                    process_new_image(load_data["image_path"])
+                    
+                    # Загружаем точки
+                    for border, points in load_data["points"].items():
+                        edge_points_lists[border].extend(points)
+                        temp_points = np.array(points, dtype=int) / RATIO
+                        points_lists[border].extend(temp_points.tolist())
+                    
+                    # Обновляем отображение
+                    image_stack.controls = [image_display]
+                    image_display.src = current_image_path
+                    image_display.visible = True
+                    
+                    # Добавляем точки на изображение
+                    for border, points in points_lists.items():
+                        for p in points:
+                            point = ft.Container(
+                                content=ft.CircleAvatar(
+                                    bgcolor=colors[border],
+                                    radius=2,
+                                ),
+                                left=p[0] - 2,
+                                top=p[1] - 2
+                            )
+                            image_stack.controls.append(point)
+                    
+                    # Обновляем состояние
+                    update_coords_text()
+                    update_button_states()
+                    
+                    page.update()
+                    
+                except Exception as e:
+                    show_alert(f"Ошибка при загрузке: {str(e)}")
+        
+        # Устанавливаем обработчик и открываем диалог загрузки
+        load_picker.on_result = handle_load
+        load_picker.pick_files(
+            allowed_extensions=["json"]
+        )
+
+    # Создаем кнопки для сохранения и загрузки
+    save_button = ft.ElevatedButton(
+        "Сохранить точки",
+        icon=ft.icons.SAVE,
+        on_click=save_points_to_json,
+        disabled=True  # Изначально неактивна
+    )
+    
+    load_button = ft.ElevatedButton(
+        "Загрузить точки",
+        icon=ft.icons.UPLOAD_FILE,
+        on_click=load_points_from_json
+    )
+
+    # Обновляем функцию update_button_states
     def update_button_states():
         # Кнопка построения сетки активна только если есть достаточно точек
         build_button.disabled = not check_points()
         
         # Кнопка применения активна только после успешного построения сетки
         apply_button.disabled = not grid_built
+        
+        # Кнопка сохранения активна только если есть точки
+        save_button.disabled = not any(points for points in points_lists.values())
         
         page.update()
 
@@ -492,6 +618,10 @@ def create_main_page(page: ft.Page):
             build_button,
             apply_button
         ], spacing=10, wrap=True),
+        ft.Row([
+            save_button,
+            load_button
+        ], spacing=10, wrap=True),
         show_grid_checkbox,
         ft.Text("Координаты точек:", size=16),
         coords_container
@@ -502,10 +632,10 @@ def create_main_page(page: ft.Page):
         ft.Container(
             content=gesture,
             border=ft.border.all(1, ft.Colors.GREY_400),
-            border_radius=5,
-            padding=5,
+            # border_radius=5,
+            # padding=5,
             width=page.width * 0.5,
-            height=page.height * 0.7,
+            height=STACK_IMAGE_HEIGHT,
             alignment=ft.alignment.center
         ),
         ft.Container(
