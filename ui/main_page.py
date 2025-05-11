@@ -1,19 +1,11 @@
 import flet as ft
 from flet import canvas as canv
-
 import cv2
 import tempfile
 import numpy as np
+from core.utils import build_mesh_function, preprocess_edges
 
-from app.utils import build_mesh_function, preprocess_edges
-
-
-def main(page: ft.Page):
-    # Настройка страницы
-    page.title = "Обработка изображений"
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.padding = 20
-
+def create_main_page(page: ft.Page):
     # Названия границ
     border_names = ["edge_top", "edge_bottom", "edge_left", "edge_right"]
 
@@ -43,13 +35,11 @@ def main(page: ft.Page):
         fit=ft.ImageFit.CONTAIN,
         visible=False,
         height=page.height * 0.7,
-        # expand=True
     )
     
     # Stack для наложения точек на изображение
     image_stack = ft.Stack(
         [image_display],
-        # expand=True
     )
 
     # Функция для обработки клика по изображению
@@ -102,12 +92,10 @@ def main(page: ft.Page):
     # Stack для изображений в режиме просмотра
     image_stack_left = ft.Stack(
         [image_display_left],
-        # expand=True
     )
     
     image_stack_right = ft.Stack(
         [image_display_right],
-        # expand=True
     )
 
     # Переменная для хранения сетки (canvas)
@@ -480,18 +468,6 @@ def main(page: ft.Page):
         
         page.update()
 
-    # Функция для возврата в основной режим
-    def back_to_main(e):
-        page.go("/")
-
-    back_button = ft.IconButton(
-        icon=ft.icons.ARROW_BACK,
-        tooltip="Вернуться назад",
-        on_click=back_to_main
-    )
-
-    # Определение макетов для разных режимов
-    
     # Компонент с текущими координатами
     coords_container = ft.Container(
         content=ft.Column([
@@ -525,7 +501,6 @@ def main(page: ft.Page):
     layout1 = ft.Row([
         ft.Container(
             content=gesture,
-            # expand=True,
             border=ft.border.all(1, ft.Colors.GREY_400),
             border_radius=5,
             padding=5,
@@ -538,70 +513,4 @@ def main(page: ft.Page):
         )
     ], spacing=20)
 
-    # Макет 2 (режим просмотра)
-    layout2 = ft.Column([
-        ft.Row([
-            ft.Text("Режим просмотра", size=24, weight=ft.FontWeight.BOLD, expand=True),
-            back_button
-        ]),
-        ft.Row([
-            ft.Container(
-                content=image_stack_left,
-                expand=True,
-                border=ft.border.all(1, ft.Colors.GREY_400),
-                border_radius=5,
-                padding=5
-            ),
-            ft.Container(
-                content=image_stack_right,
-                expand=True,
-                border=ft.border.all(1, ft.Colors.GREY_400),
-                border_radius=5,
-                padding=5
-            )
-        ], expand=True)
-    ], expand=True)
-
-    # Определение маршрутов для навигации
-    def route_change(e):
-        page.views.clear()
-        
-        if e.route == "/":
-            page.views.append(
-                ft.View(
-                    route="/",
-                    controls=[
-                        ft.AppBar(title=ft.Text("Ввод граничных точек"), center_title=True),
-                        layout1
-                    ],
-                    padding=ft.padding.all(20)
-                )
-            )
-        elif e.route == "/view":
-            page.views.append(
-                ft.View(
-                    route="/view",
-                    controls=[
-                        ft.AppBar(title=ft.Text("Режим просмотра"), center_title=True),
-                        layout2
-                    ],
-                    padding=ft.padding.all(20)
-                )
-            )
-        
-        page.update()
-
-    # Обработчик показа просмотра
-    def view_pop(e):
-        page.views.pop()
-        top_view = page.views[-1]
-        page.go(top_view.route)
-
-    page.on_route_change = route_change
-    page.on_view_pop = view_pop
-    
-    # Инициализация начального вида
-    page.go("/")
-
-if __name__ == "__main__":
-    ft.app(target=main)
+    return layout1, image_stack_left, image_stack_right 
