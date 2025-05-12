@@ -2,6 +2,7 @@ import flet as ft
 from ui.main_page import create_main_page
 from ui.view_page import create_view_page
 
+
 def main(page: ft.Page):
     # Настройка страницы
     page.title = "Обработка изображений"

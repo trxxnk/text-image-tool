@@ -1,5 +1,10 @@
-flet>=0.21.0
-opencv-python>=4.8.0
-numpy>=1.24.0
-Pillow>=10.0.0
-scipy>=1.10.0
+# requirements.txt
+# Зависимости для работы приложения Text Image Mesh Tool
+
+flet==0.27.6             # UI-фреймворк (Flutter + Python)
+flet-cli==0.27.6
+flet-desktop==0.27.6
+flet-web==0.27.6         
+numpy==2.2.5             # Математические операции, работа с массивами
+opencv-python==4.11.0.86 # Обработка изображений
+scipy==1.15.2            # Кубические сплайны для построения сетки
