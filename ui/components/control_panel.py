@@ -4,8 +4,7 @@ from ..state.app_state import AppState
 
 class ControlPanel:
     def __init__(self, state: AppState, on_upload: Callable, on_clear: Callable,
-                 on_build_grid: Callable, on_apply: Callable, on_save: Callable,
-                 on_load: Callable, on_grid_toggle: Callable):
+                 on_save: Callable, on_load: Callable, on_grid_toggle: Callable):
         self.state = state
         
         # Создаем выпадающий список для выбора границы
@@ -18,7 +17,7 @@ class ControlPanel:
             width=200
         )
         
-        # Создаем кнопки
+        # Создаем кнопки (часть из них будем использовать в новом макете)
         self.upload_button = ft.ElevatedButton(
             "Загрузить изображение",
             icon=ft.icons.UPLOAD_FILE,
@@ -29,20 +28,6 @@ class ControlPanel:
             "Очистить точки",
             icon=ft.icons.DELETE,
             on_click=on_clear
-        )
-        
-        self.build_button = ft.ElevatedButton(
-            "Построить сетку",
-            icon=ft.icons.GRID_4X4,
-            on_click=on_build_grid,
-            disabled=True
-        )
-        
-        self.apply_button = ft.ElevatedButton(
-            "Применить",
-            icon=ft.icons.CHECK,
-            on_click=on_apply,
-            disabled=True
         )
         
         self.save_button = ft.ElevatedButton(
@@ -58,12 +43,12 @@ class ControlPanel:
             on_click=on_load
         )
         
-        # Checkbox для отображения сетки
+        # Обновленный чекбокс для построения и отображения сетки
         self.show_grid_checkbox = ft.Checkbox(
             label="Показать сетку",
             value=False,
             on_change=on_grid_toggle,
-            disabled=True
+            disabled=True  # По умолчанию выключен
         )
         
         # Создаем текстовые поля для координат
@@ -83,7 +68,7 @@ class ControlPanel:
             expand=True
         )
         
-        # Собираем все в колонку
+        # Собираем все в колонку для старого макета (по прежнему доступно, но не используется в новом макете)
         self.content = ft.Column([
             ft.Text("Управление", size=24, weight=ft.FontWeight.BOLD),
             ft.Text("Выберите границу:", size=16),
@@ -91,10 +76,6 @@ class ControlPanel:
             ft.Row([
                 self.upload_button,
                 self.clear_button
-            ], spacing=10, wrap=True),
-            ft.Row([
-                self.build_button,
-                self.apply_button
             ], spacing=10, wrap=True),
             ft.Row([
                 self.save_button,
@@ -121,7 +102,7 @@ class ControlPanel:
         self.coords_container.update()
                 
     def update_button_states(self):
-        """Обновляет состояние кнопок"""
+        """Обновляет состояние кнопок и чекбокса"""
         # Проверяем, есть ли хотя бы одна точка в любой границе
         has_any_points = any(len(points) > 0 for points in self.state.points_lists.values())
         
@@ -131,11 +112,9 @@ class ControlPanel:
         # Разрешаем сохранение, если есть хотя бы одна точка
         self.save_button.disabled = not has_any_points
         
-        # Разрешаем построение сетки только если есть достаточно точек
-        self.build_button.disabled = not has_enough_points
+        # Разрешаем показ/активацию чекбокса только если есть достаточно точек
+        self.show_grid_checkbox.disabled = not has_enough_points
         
-        # Разрешаем применение только если сетка построена
-        self.apply_button.disabled = not self.state.grid_built
-        
-        # Разрешаем показ сетки только если она построена
-        self.show_grid_checkbox.disabled = not self.state.grid_built
+        # Если недостаточно точек - выключаем чекбокс
+        if not has_enough_points and self.show_grid_checkbox.value:
+            self.show_grid_checkbox.value = False 

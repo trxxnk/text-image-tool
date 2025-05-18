@@ -40,7 +40,6 @@ class ImageDisplay:
         )
         
     def _handle_image_click(self, e: ft.TapEvent):
-        """Обработчик клика по изображению"""
         if self.image.visible:
             # Получаем координаты клика относительно изображения
             x = e.local_x
@@ -97,6 +96,7 @@ class ImageDisplay:
             
     def remove_mesh_canvas(self, canvas: canv.Canvas):
         """Удаляет canvas с сеткой"""
-        if canvas in self.stack.controls:
-            self.stack.controls.remove(canvas)
-            self.stack.update()
+        # Создаем новый список controls без canvas элементов
+        self.stack.controls = [control for control in self.stack.controls 
+                               if not isinstance(control, canv.Canvas)]
+        self.stack.update()
