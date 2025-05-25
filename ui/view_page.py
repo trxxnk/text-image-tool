@@ -1,11 +1,10 @@
 import flet as ft
 import os
 import cv2
-import numpy as np
-from flet import canvas as canv
 
-def create_view_page_content(page: ft.Page, workflow_tabs, mode_selector, 
-                         image_stack_left, image_stack_right):
+
+def create_view_page_content(page: ft.Page, image_stack_left:ft.Stack,
+                             image_stack_right:ft.Stack):
     """
     Создает содержимое для режима просмотра результата.
     
@@ -22,41 +21,6 @@ def create_view_page_content(page: ft.Page, workflow_tabs, mode_selector,
     # Создаем файловый диалог для сохранения изображения
     save_file_picker = ft.FilePicker()
     page.overlay.append(save_file_picker)
-
-    # Функция для обновления положения сетки
-    def update_mesh_position():
-        if len(image_stack_left.controls) >= 2:
-            image = image_stack_left.controls[0]
-            mesh = None
-            
-            # Найдем canvas с сеткой
-            for control in image_stack_left.controls:
-                if isinstance(control, canv.Canvas):
-                    mesh = control
-                    break
-            
-            if mesh and image.visible:
-                # Получаем размеры контейнера и изображения
-                container_width = image_stack_left.width
-                container_height = image_stack_left.height
-                img_width = image.width
-                img_height = image.height
-                
-                # Обновляем размеры сетки, чтобы они соответствовали размерам изображения
-                mesh.width = img_width
-                mesh.height = img_height
-                
-                # Обновляем позиции всех точек
-                for i in range(2, len(image_stack_left.controls)):
-                    control = image_stack_left.controls[i]
-                    if isinstance(control, ft.Container) and hasattr(control, 'left') and hasattr(control, 'top'):
-                        # Здесь нужно только убедиться, что точки находятся на правильных позициях
-                        # Поскольку точки уже добавлены на правильных позициях в handle_apply,
-                        # мы не меняем их координаты
-                        pass
-                
-                # Обновляем UI
-                image_stack_left.update()
 
     # Функция для сохранения изображения
     def save_image(e):
@@ -104,39 +68,6 @@ def create_view_page_content(page: ft.Page, workflow_tabs, mode_selector,
         "Сохранить изображение",
         on_click=save_image
     )
-
-    # Функция возврата к режиму редактирования
-    def back_to_edit(_):
-        workflow_tabs.selected_index = 0
-        workflow_tabs.on_change(ft.ControlEvent(workflow_tabs, "selected_index"))
-
-    # Обработчик отображения страницы
-    def on_view_page_visible(e):
-        # Вызываем обновление позиции сетки при отображении страницы
-        if workflow_tabs.selected_index == 1:  # Если активен режим просмотра
-            update_mesh_position()
-            page.update()
-
-    # Сохраняем оригинальный обработчик изменения вкладок
-    original_on_change = workflow_tabs.on_change
-    
-    # Устанавливаем новый обработчик, который вызывает оригинальный и наш новый
-    def combined_on_change(e):
-        # Вызываем оригинальный обработчик, если он существует
-        if original_on_change:
-            original_on_change(e)
-        
-        # Вызываем наш обработчик обновления сетки
-        if e.control.selected_index == 1:
-            on_view_page_visible(e)
-    
-    # Устанавливаем комбинированный обработчик
-    workflow_tabs.on_change = combined_on_change
-    
-    # Обработчик изменения размера окна
-    def on_resize(_):
-        if workflow_tabs.selected_index == 1:  # Если активен режим просмотра
-            update_mesh_position()
 
     # Кнопки управления - размещаем в том же месте для консистентности
     controls_row = ft.Row([

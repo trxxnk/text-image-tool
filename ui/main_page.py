@@ -1,6 +1,5 @@
 import flet as ft
 import numpy as np
-import cv2
 from .state.app_state import AppState
 from .components.image_display import ImageDisplay
 from .components.control_panel import ControlPanel
@@ -8,17 +7,13 @@ from .handlers.image_handlers import process_new_image, show_alert
 from .handlers.grid_handlers import build_grid
 from .utils.file_utils import save_points_to_json, load_points_from_json
 
-def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector, 
-                         image_stack_left, image_stack_right):
+def create_main_page_content(page: ft.Page):
     """
     Создает содержимое для режима редактирования/ввода точек.
     
     Args:
         page: Объект страницы
         workflow_tabs: Вкладки для переключения между режимами
-        mode_selector: Селектор режима работы
-        image_stack_left: Стек изображения слева для режима просмотра
-        image_stack_right: Стек изображения справа для режима просмотра
         
     Returns:
         Container: Содержимое страницы редактирования
@@ -41,10 +36,6 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
         visible=False,
         height=STACK_IMAGE_HEIGHT
     )
-
-    # Обновляем стеки с изображениями
-    image_stack_left.controls = [image_display_left]
-    image_stack_right.controls = [image_display_right]
     
     # Создаем FilePicker'ы для всех операций с файлами
     file_picker = ft.FilePicker()
@@ -68,12 +59,13 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
     
     # Функция для обновления сетки при добавлении новой точки
     def update_grid_if_needed():
+        nonlocal image_display
         # Если сетка отображается и чекбокс включен, перестраиваем сетку
         if state.show_grid and state.check_points():
             try:
                 # Удаляем старую сетку
                 if state.mesh_canvas:
-                    image_display.remove_mesh_canvas(state.mesh_canvas)
+                    image_display.remove_mesh_canvas()
                 
                 # Строим новую сетку
                 mesh_canvas, mesh_canvas_left = build_grid(state)
@@ -81,18 +73,13 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
                 # Устанавливаем размеры canvas
                 mesh_canvas.width = image_display.image.width
                 mesh_canvas.height = image_display.image.height
-                mesh_canvas_left.width = image_display_left.width
-                mesh_canvas_left.height = image_display_left.height
                 
                 # Сохраняем canvas в состояние
                 state.mesh_canvas = mesh_canvas
-                state.mesh_canvas_left = mesh_canvas_left
                 
                 # Показываем новую сетку
                 image_display.add_mesh_canvas(mesh_canvas)
-                
-                # Автоматически применяем сетку к режиму просмотра
-                handle_apply(None)
+            
             except Exception as e:
                 show_alert(page, f"Ошибка при обновлении сетки: {str(e)}")
                 state.grid_built = False
@@ -106,16 +93,12 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
             process_new_image(
                 e.files[0].path,
                 state,
-                image_display,
-                image_display_left,
-                image_display_right,
-                STACK_IMAGE_HEIGHT
+                image_display
             )
             # Сбрасываем флаги и обновляем чекбокс
             state.show_grid = False
             state.grid_built = False
             state.mesh_canvas = None
-            state.mesh_canvas_left = None
             control_panel.show_grid_checkbox.value = False
             control_panel.update_coords_text()
             control_panel.update_button_states()
@@ -133,7 +116,6 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
         if state.mesh_canvas:
             image_display.remove_mesh_canvas(state.mesh_canvas)
             state.mesh_canvas = None
-            state.mesh_canvas_left = None
         
         # Очищаем UI
         image_display.clear()
@@ -180,10 +162,7 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
                     process_new_image(
                         load_data["image_path"],
                         state,
-                        image_display,
-                        image_display_left,
-                        image_display_right,
-                        STACK_IMAGE_HEIGHT
+                        image_display
                     )
                     
                     # Загружаем точки
@@ -219,69 +198,6 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
             allowed_extensions=["json"]
         )
         
-    def handle_apply(_):
-        # Проверяем наличие сетки или возможность её построения
-        if not state.grid_built and not state.check_points():
-            show_alert(page, "Необходимо добавить минимум по 2 точки для каждой границы!")
-            return
-            
-        try:
-            # Если сетка не построена, но есть достаточно точек - построим её
-            if not state.grid_built and state.check_points():
-                # Строим новую сетку
-                mesh_canvas, mesh_canvas_left = build_grid(state)
-                
-                # Устанавливаем размеры canvas
-                mesh_canvas.width = image_display.image.width
-                mesh_canvas.height = image_display.image.height
-                mesh_canvas_left.width = image_display_left.width
-                mesh_canvas_left.height = image_display_left.height
-                
-                # Сохраняем canvas в состояние
-                state.mesh_canvas = mesh_canvas
-                state.mesh_canvas_left = mesh_canvas_left
-                
-                # Устанавливаем флаг успешного построения сетки
-                state.grid_built = True
-                
-            # Обновляем изображения в режиме просмотра
-            # Добавляем сетку на левое изображение в режиме просмотра
-            image_stack_left.controls = [image_display_left]
-            
-            # Добавляем mesh_canvas_left если он существует
-            if state.mesh_canvas_left:
-                # Убедимся, что размеры canvas соответствуют изображению
-                state.mesh_canvas_left.width = image_display_left.width
-                state.mesh_canvas_left.height = image_display_left.height
-                image_stack_left.controls.append(state.mesh_canvas_left)
-                
-            # Добавляем точки поверх сетки для левого изображения
-            point_radius = 4
-            for border, points in state.points_lists.items():
-                for p in points:
-                    # Масштабируем точки относительно размера изображения в режиме просмотра
-                    scaled_x = p[0] * (image_display_left.width / image_display.image.width)
-                    scaled_y = p[1] * (image_display_left.height / image_display.image.height)
-                    
-                    new_point = ft.Container(
-                        content=ft.CircleAvatar(
-                            bgcolor=state.colors[border],
-                            radius=point_radius,
-                        ),
-                        left=(scaled_x-point_radius),
-                        top=(scaled_y-point_radius),
-                    )
-                    image_stack_left.controls.append(new_point)
-            
-            # Переключаемся на вкладку просмотра
-            workflow_tabs.selected_index = 1
-            workflow_tabs.on_change(ft.ControlEvent(workflow_tabs, "selected_index"))
-                
-            page.update()
-            
-        except Exception as e:
-            show_alert(page, f"Ошибка при применении сетки: {str(e)}")
-        
     def handle_grid_toggle(e):
         # Сохраняем текущее состояние чекбокса
         state.show_grid = e.control.value
@@ -298,32 +214,25 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
                 return
                 
             try:
-                # Строим новую сетку, если её ещё нет или нужно обновить
                 # Удаляем старую сетку, если она есть
                 if state.mesh_canvas:
                     image_display.remove_mesh_canvas(state.mesh_canvas)
                 
                 # Строим новую сетку
-                mesh_canvas, mesh_canvas_left = build_grid(state)
+                mesh_canvas, mesh_canvas_left = build_grid(state) # TODO: передалать логику build_grid
                 
                 # Устанавливаем размеры canvas
                 mesh_canvas.width = image_display.image.width
                 mesh_canvas.height = image_display.image.height
-                mesh_canvas_left.width = image_display_left.width
-                mesh_canvas_left.height = image_display_left.height
                 
                 # Сохраняем canvas в состояние
                 state.mesh_canvas = mesh_canvas
-                state.mesh_canvas_left = mesh_canvas_left
                 
                 # Устанавливаем флаг успешного построения сетки
                 state.grid_built = True
                 
                 # Показываем новую сетку
                 image_display.add_mesh_canvas(mesh_canvas)
-                
-                # Автоматически применяем сетку к режиму просмотра
-                handle_apply(None)
                 
             except Exception as e:
                 show_alert(page, f"Ошибка при построении сетки: {str(e)}")
@@ -386,11 +295,4 @@ def create_main_page_content(page: ft.Page, workflow_tabs, mode_selector,
     spacing=20
     )
     
-    # Здесь добавляем обработчик загрузки страницы
-    def on_page_load(_):
-        control_panel.update_button_states()
-        page.update()
-    
-    page.on_load = on_page_load
-
     return content

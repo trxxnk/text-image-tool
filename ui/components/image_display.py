@@ -1,6 +1,6 @@
 import flet as ft
 from flet import canvas as canv
-from typing import Callable, Optional
+from typing import Callable
 from ..state.app_state import AppState
 
 class ImageDisplay:
@@ -94,7 +94,7 @@ class ImageDisplay:
             self.stack.controls = controls
             self.stack.update()
             
-    def remove_mesh_canvas(self, canvas: canv.Canvas):
+    def remove_mesh_canvas(self):
         """Удаляет canvas с сеткой"""
         # Создаем новый список controls без canvas элементов
         self.stack.controls = [control for control in self.stack.controls 

@@ -35,7 +35,6 @@ class AppState:
         
         # Canvas для сетки
         self.mesh_canvas = None
-        self.mesh_canvas_left = None
 
     def clear_points(self):
         """Очищает все точки"""

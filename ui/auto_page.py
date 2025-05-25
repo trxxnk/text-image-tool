@@ -1,13 +1,11 @@
 import flet as ft
 
-def create_auto_page_content(page: ft.Page, workflow_tabs, mode_selector):
+def create_auto_page_content(page: ft.Page):
     """
     Создает содержимое для автоматического режима выравнивания текста.
     
     Args:
         page: Объект страницы
-        workflow_tabs: Вкладки для переключения между режимами
-        mode_selector: Селектор режима работы
         
     Returns:
         Container: Содержимое страницы автоматического режима

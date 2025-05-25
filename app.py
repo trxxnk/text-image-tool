@@ -76,11 +76,9 @@ def main(page: ft.Page):
     )
     
     # Создаем содержимое для всех режимов
-    editor_content = create_main_page_content(page, workflow_tabs, mode_selector, 
-                                          image_stack_left, image_stack_right)
-    view_content = create_view_page_content(page, workflow_tabs, mode_selector,
-                                         image_stack_left, image_stack_right)
-    auto_content = create_auto_page_content(page, workflow_tabs, mode_selector)
+    editor_content = create_main_page_content(page)
+    view_content = create_view_page_content(page, image_stack_left, image_stack_right)
+    auto_content = create_auto_page_content(page)
     
     # Помещаем содержимое в контейнеры
     input_container.content = editor_content

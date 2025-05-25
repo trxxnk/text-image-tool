@@ -5,9 +5,7 @@ from ..state.app_state import AppState
 from ..utils.image_utils import add_watermark
 from ..components.image_display import ImageDisplay
 
-def process_new_image(file_path: str, state: AppState, image_display: ImageDisplay,
-                     image_display_left: ft.Image, image_display_right: ft.Image,
-                     stack_height: float):
+def process_new_image(file_path: str, state: AppState, image_display: ImageDisplay):
     """Обрабатывает новое изображение"""
     # Сохраняем путь к текущему изображению
     state.current_image_path = file_path
@@ -27,27 +25,15 @@ def process_new_image(file_path: str, state: AppState, image_display: ImageDispl
     if img is not None:
         img_height, img_width = img.shape[:2]
         # Вычисляем коэффициент масштабирования
-        ratio = img_height / stack_height
+        ratio = img_height / image_display.height
         
         # Устанавливаем изображения
         image_display.set_image(file_path, ratio)
-        
-        image_display_left.src = file_path
-        image_display_left.visible = True
-        
-        # Создаем версию изображения с водяным знаком для правой панели
-        watermarked_image = add_watermark(file_path)
-        if watermarked_image:
-            image_display_right.src = watermarked_image
-        else:
-            image_display_right.src = file_path
-        
-        image_display_right.visible = True
 
 def show_alert(page: ft.Page, message: str):
     """Показывает диалог с предупреждением"""
     def on_click(_):
-        page.dialog.open = False
+        page.dialog.open = False # TODO: св-ва page.dialog нет
         page.update()
         
     dlg = ft.AlertDialog(
