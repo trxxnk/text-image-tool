@@ -1,5 +1,6 @@
 import flet as ft
 from flet import canvas as canv
+import cv2
 from typing import Callable
 from ..state.app_state import AppState
 
@@ -78,6 +79,45 @@ class ImageDisplay:
         """Очищает все точки с изображения"""
         self.stack.controls = [self.image]
         self.stack.update()
+        
+    def process_new_image(self, file_path: str):
+        """Обрабатывает новое изображение"""
+        # Сохраняем путь к текущему изображению
+        self.state.current_image_path = file_path
+        
+        # Сбрасываем флаги
+        self.state.grid_built = False
+        self.state.show_grid = False
+        
+        # Очищаем точки
+        self.state.clear_points()
+        
+        # Обновляем изображения для обоих режимов
+        self.clear()
+        
+        # Загружаем изображение для получения его размеров
+        img = cv2.imread(file_path)
+        if img is not None:
+            img_height, img_width = img.shape[:2]
+            # Вычисляем коэффициент масштабирования
+            ratio = img_height / self.height
+            
+            # Устанавливаем изображения
+            self.set_image(file_path, ratio)
+
+        
+    def add_points(self, points: list, color:ft.Colors):
+        point_radius = 4
+        for p in points:
+            point = ft.Container(
+                content=ft.CircleAvatar(
+                    bgcolor=color,
+                    radius=point_radius,
+                ),
+                left=(p[0]-point_radius),
+                top=(p[1]-point_radius)
+            )
+            self.stack.controls.append(point)    
         
     def add_mesh_canvas(self, canvas: canv.Canvas):
         """Добавляет canvas с сеткой"""

@@ -3,7 +3,7 @@ import numpy as np
 from .state.app_state import AppState
 from .components.image_display import ImageDisplay
 from .components.control_panel import ControlPanel
-from .handlers.image_handlers import process_new_image, show_alert
+from .handlers.image_handlers import show_alert
 from .handlers.grid_handlers import build_grid
 from .utils.file_utils import save_points_to_json, load_points_from_json
 
@@ -23,19 +23,6 @@ def create_main_page_content(page: ft.Page):
     
     # Константы
     STACK_IMAGE_HEIGHT = page.height * 0.7
-    
-    # Изображения для режима просмотра
-    image_display_left = ft.Image(
-        fit=ft.ImageFit.CONTAIN,
-        visible=False,
-        height=STACK_IMAGE_HEIGHT
-    )
-    
-    image_display_right = ft.Image(
-        fit=ft.ImageFit.CONTAIN,
-        visible=False,
-        height=STACK_IMAGE_HEIGHT
-    )
     
     # Создаем FilePicker'ы для всех операций с файлами
     file_picker = ft.FilePicker()
@@ -59,7 +46,7 @@ def create_main_page_content(page: ft.Page):
     
     # Функция для обновления сетки при добавлении новой точки
     def update_grid_if_needed():
-        nonlocal image_display
+        image_display
         # Если сетка отображается и чекбокс включен, перестраиваем сетку
         if state.show_grid and state.check_points():
             try:
@@ -90,15 +77,13 @@ def create_main_page_content(page: ft.Page):
     # Обработчики событий
     def handle_file_upload(e: ft.FilePickerResultEvent):
         if e.files and e.files[0].path:
-            process_new_image(
-                e.files[0].path,
-                state,
-                image_display
-            )
+            image_display.process_new_image(e.files[0].path)
             # Сбрасываем флаги и обновляем чекбокс
             state.show_grid = False
             state.grid_built = False
             state.mesh_canvas = None
+            state.clear_points()
+            image_display.clear()
             control_panel.show_grid_checkbox.value = False
             control_panel.update_coords_text()
             control_panel.update_button_states()
@@ -114,7 +99,7 @@ def create_main_page_content(page: ft.Page):
         
         # Удаляем сетку, если она отображается
         if state.mesh_canvas:
-            image_display.remove_mesh_canvas(state.mesh_canvas)
+            image_display.remove_mesh_canvas()
             state.mesh_canvas = None
         
         # Очищаем UI
@@ -148,6 +133,7 @@ def create_main_page_content(page: ft.Page):
         )
         
     def handle_load(_):
+        nonlocal image_display
         def handle_load_result(e: ft.FilePickerResultEvent):
             if e.files:
                 try:
@@ -159,32 +145,18 @@ def create_main_page_content(page: ft.Page):
                             show_alert(page, "Некорректный формат файла!")
                             return
                     
-                    process_new_image(
-                        load_data["image_path"],
-                        state,
-                        image_display
-                    )
+                    image_display.process_new_image(load_data["image_path"])
                     
                     # Загружаем точки
                     for border, points in load_data["points"].items():
                         state.edge_points_lists[border].extend(points)
                         temp_points = np.array(points, dtype=int) / state.ratio
                         state.points_lists[border].extend(temp_points.tolist())
+                        print("hhh")
+                        image_display.add_points(temp_points, color=state.colors[border])
                         
-                        # Добавляем точки на изображение
-                        point_radius = 4
-                        for p in temp_points:
-                            point = ft.Container(
-                                content=ft.CircleAvatar(
-                                    bgcolor=state.colors[border],
-                                    radius=point_radius,
-                                ),
-                                left=(p[0]-point_radius),
-                                top=(p[1]-point_radius)
-                            )
-                            image_display.stack.controls.append(point)
-                    
                     # Обновляем состояние
+                    print("AaA")
                     control_panel.update_coords_text()
                     control_panel.update_button_states()
                     
@@ -216,7 +188,7 @@ def create_main_page_content(page: ft.Page):
             try:
                 # Удаляем старую сетку, если она есть
                 if state.mesh_canvas:
-                    image_display.remove_mesh_canvas(state.mesh_canvas)
+                    image_display.remove_mesh_canvas()
                 
                 # Строим новую сетку
                 mesh_canvas, mesh_canvas_left = build_grid(state) # TODO: передалать логику build_grid
@@ -242,7 +214,7 @@ def create_main_page_content(page: ft.Page):
         else:
             # Если чекбокс выключен, скрываем сетку
             if state.mesh_canvas:
-                image_display.remove_mesh_canvas(state.mesh_canvas)
+                image_display.remove_mesh_canvas()
         
         # Обновляем UI
         page.update()
