@@ -9,10 +9,13 @@ def main(page: ft.Page):
     page.title = "Обработка изображений"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
+    
+    # Константы
+    STACK_IMAGE_HEIGHT = page.height * 0.7
 
     # Создаем общие компоненты для обоих режимов
-    image_stack_left = ft.Stack([ft.Image()])
-    image_stack_right = ft.Stack([ft.Image()])
+    image_stack_left = ft.Stack([ft.Image()], height=STACK_IMAGE_HEIGHT)
+    image_stack_right = ft.Stack([ft.Image()], height=STACK_IMAGE_HEIGHT)
     
     # Инициализируем состояние
     state = AppState()
@@ -30,9 +33,9 @@ def main(page: ft.Page):
             view_container.visible = False
 
         else:  # Выбран режим "Выравнивание"
-            process_on_tab_change(page, image_stack_left, image_stack_right, state) # TODO
             input_container.visible = False
             view_container.visible = True
+            process_on_tab_change(page, image_stack_left, image_stack_right, state) # TODO
         
         # Форсируем обновление UI
         page.update()
@@ -110,4 +113,4 @@ def main(page: ft.Page):
     page.add(main_layout)
 
 if __name__ == "__main__":
-    ft.app(target=main) 
+    ft.app(target=main)
