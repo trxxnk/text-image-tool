@@ -26,6 +26,7 @@ def handle_image_upload(state: AppState, image_display: ImageDisplay,
             state.show_grid = False
             state.grid_built = False
             state.mesh_canvas = None
+            state.current_image_path = e.files[0].path
             state.clear_points()
             image_display.clear()
             control_panel.show_grid_checkbox.value = False
@@ -94,7 +95,7 @@ def handle_load_points(state: AppState, image_display: ImageDisplay,
                     # Обновляем состояние
                     control_panel.update_coords_text()
                     control_panel.update_button_states()
-                    
+                    state.current_image_path = load_data["image_path"]
                     page.update()
                 except Exception as e:
                     raise e
@@ -123,7 +124,8 @@ def handle_clear(state: AppState, image_display: ImageDisplay,
         # Сбрасываем флаги
         state.grid_built = False
         state.show_grid = False
-        
+        state.current_image_path = None
+
         # Удаляем сетку, если она отображается
         if state.mesh_canvas:
             image_display.remove_mesh_canvas()

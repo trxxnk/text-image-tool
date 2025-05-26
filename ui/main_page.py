@@ -11,7 +11,7 @@ from .handlers.picker_handlers import (
 )
 from .handlers.grid_handlers import update_grid_if_needed, handle_grid_toggle
 
-def create_main_page_content(page: ft.Page):
+def create_main_page_content(page: ft.Page, state: AppState):
     """
     Создает содержимое для режима редактирования/ввода точек.
     
@@ -21,8 +21,6 @@ def create_main_page_content(page: ft.Page):
     Returns:
         Container: Содержимое страницы редактирования
     """
-    # Инициализируем состояние
-    state = AppState()
     
     # Константы
     STACK_IMAGE_HEIGHT = page.height * 0.7

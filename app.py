@@ -1,8 +1,8 @@
 import flet as ft
 from ui.main_page import create_main_page_content
-from ui.view_page import create_view_page_content
+from ui.view_page import create_view_page_content, process_on_tab_change
 from ui.auto_page import create_auto_page_content
-
+from ui.state.app_state import AppState
 
 def main(page: ft.Page):
     # Настройка страницы
@@ -11,8 +11,11 @@ def main(page: ft.Page):
     page.padding = 20
 
     # Создаем общие компоненты для обоих режимов
-    image_stack_left = ft.Stack([])
-    image_stack_right = ft.Stack([])
+    image_stack_left = ft.Stack([ft.Image()])
+    image_stack_right = ft.Stack([ft.Image()])
+    
+    # Инициализируем состояние
+    state = AppState()
     
     # Создаем контейнеры для содержимого режимов
     input_container = ft.Container(expand=True)
@@ -27,6 +30,7 @@ def main(page: ft.Page):
             view_container.visible = False
 
         else:  # Выбран режим "Выравнивание"
+            process_on_tab_change(page, image_stack_left, image_stack_right, state) # TODO
             input_container.visible = False
             view_container.visible = True
         
@@ -76,8 +80,8 @@ def main(page: ft.Page):
     )
     
     # Создаем содержимое для всех режимов
-    editor_content = create_main_page_content(page)
-    view_content = create_view_page_content(page, image_stack_left, image_stack_right)
+    editor_content = create_main_page_content(page, state)
+    view_content = create_view_page_content(page, image_stack_left, image_stack_right, state)
     auto_content = create_auto_page_content(page)
     
     # Помещаем содержимое в контейнеры
