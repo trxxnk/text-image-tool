@@ -1,5 +1,4 @@
 import flet as ft
-import numpy as np
 from typing import Dict, List, Tuple, Optional
 
 class AppState:

@@ -1,14 +1,22 @@
 import flet as ft
 from flet import canvas as canv
 import cv2
-from typing import Callable
+from typing import Callable, Optional
 from ..state.app_state import AppState
 
 class ImageDisplay:
-    def __init__(self, state: AppState, height: float, on_point_added: Callable = None):
+    def __init__(self, state: AppState, height: float, on_point_added: Optional[Callable] = None):
+        """
+        Инициализирует компонент отображения изображения.
+        
+        Args:
+            state: Объект состояния приложения
+            height: Высота компонента
+            on_point_added: Обработчик добавления точки (может быть установлен позже)
+        """
         self.state = state
         self.height = height
-        self.on_point_added = on_point_added
+        self._on_point_added = on_point_added
         
         # Создаем компонент изображения
         self.image = ft.Image(
@@ -39,6 +47,16 @@ class ImageDisplay:
             height=height,
             alignment=ft.alignment.center
         )
+    
+    @property
+    def on_point_added(self) -> Optional[Callable]:
+        """Геттер для обработчика добавления точки"""
+        return self._on_point_added
+    
+    @on_point_added.setter
+    def on_point_added(self, callback: Optional[Callable]):
+        """Сеттер для обработчика добавления точки"""
+        self._on_point_added = callback
         
     def _handle_image_click(self, e: ft.TapEvent):
         if self.image.visible:
@@ -65,8 +83,8 @@ class ImageDisplay:
             self.stack.update()
             
             # Вызываем callback для обновления панели управления
-            if self.on_point_added:
-                self.on_point_added()
+            if self._on_point_added:
+                self._on_point_added()
             
     def set_image(self, image_path: str, ratio: float):
         """Устанавливает новое изображение"""

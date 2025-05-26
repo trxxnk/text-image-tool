@@ -74,3 +74,101 @@ def build_grid(state: AppState) -> tuple[canv.Canvas, canv.Canvas]:
     )
     
     return mesh_canvas, mesh_canvas_left
+
+def update_grid_if_needed(state, image_display, page):
+    """
+    Обновляет сетку при необходимости (добавление новых точек).
+    
+    Args:
+        state: Объект состояния приложения
+        image_display: Компонент отображения изображения
+        page: Объект страницы
+    
+    Returns:
+        bool: True, если обновление прошло успешно, иначе False
+    """
+    # Если сетка отображается и чекбокс включен, перестраиваем сетку
+    if state.show_grid and state.check_points():
+        try:
+            # Удаляем старую сетку
+            if state.mesh_canvas:
+                image_display.remove_mesh_canvas()
+            
+            # Строим новую сетку
+            mesh_canvas, mesh_canvas_left = build_grid(state)
+            
+            # Устанавливаем размеры canvas
+            mesh_canvas.width = image_display.image.width
+            mesh_canvas.height = image_display.image.height
+            
+            # Сохраняем canvas в состояние
+            state.mesh_canvas = mesh_canvas
+            
+            # Показываем новую сетку
+            image_display.add_mesh_canvas(mesh_canvas)
+            
+            return True
+        
+        except Exception as e:
+            state.grid_built = False
+            state.show_grid = False
+            page.update()
+            return False
+    
+    return False
+
+def handle_grid_toggle(e, state, image_display, page):
+    """
+    Обработчик переключения отображения сетки.
+    
+    Args:
+        e: Событие переключения
+        state: Объект состояния приложения
+        image_display: Компонент отображения изображения
+        page: Объект страницы
+    """
+    # Сохраняем текущее состояние чекбокса
+    state.show_grid = e.control.value
+    
+    # Если чекбокс включен, проверяем наличие сетки и строим её при необходимости
+    if state.show_grid:
+        # Проверяем, достаточно ли точек
+        if not state.check_points():
+            # Это не должно произойти, так как чекбокс должен быть недоступен в этом случае
+            e.control.value = False
+            state.show_grid = False
+            page.update()
+            return
+            
+        try:
+            # Удаляем старую сетку, если она есть
+            if state.mesh_canvas:
+                image_display.remove_mesh_canvas()
+            
+            # Строим новую сетку
+            mesh_canvas, mesh_canvas_left = build_grid(state)
+            
+            # Устанавливаем размеры canvas
+            mesh_canvas.width = image_display.image.width
+            mesh_canvas.height = image_display.image.height
+            
+            # Сохраняем canvas в состояние
+            state.mesh_canvas = mesh_canvas
+            
+            # Устанавливаем флаг успешного построения сетки
+            state.grid_built = True
+            
+            # Показываем новую сетку
+            image_display.add_mesh_canvas(mesh_canvas)
+            
+        except Exception as e:
+            state.grid_built = False
+            state.show_grid = False
+            e.control.value = False
+    else:
+        # Если чекбокс выключен, скрываем сетку
+        if state.mesh_canvas:
+            image_display.remove_mesh_canvas()
+    
+    # Обновляем UI
+    page.update()
