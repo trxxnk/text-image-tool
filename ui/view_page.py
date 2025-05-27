@@ -3,10 +3,10 @@ from .components.file_pickers import FilePickerManager
 from .handlers.picker_handlers import create_save_image_handler
 from .state.app_state import AppState
 import cv2
-from core.utilsTest import preprocess_edges_from_main, build_fast_mesh_function, CvColors
 from core.grid_utils import (
     create_coordinate_grid, normalize_grid_coordinates, compute_remap_maps, 
-    apply_remap, visualize_grid, visualize_boundary_points
+    apply_remap, visualize_grid, visualize_boundary_points,
+    preprocess_edges, build_fast_mesh_function, CvColors
 )
 import numpy as np
 import os
@@ -34,93 +34,58 @@ def create_loading_overlay():
 
 def process_on_tab_change(page:ft.Page, image_stack_left:ft.Stack,
                           image_stack_right:ft.Stack, state:AppState):
-    if state.current_image_path:
-        # Показываем исходное изображение на обоих панелях и добавляем загрузочные оверлеи
-        image_stack_left.controls[0].src = state.current_image_path
-        image_stack_right.controls[0].src = state.current_image_path
-        
-        # Добавляем оверлеи загрузки
-        loading_overlay_left = create_loading_overlay()
-        loading_overlay_right = create_loading_overlay()
-        
-        image_stack_left.controls.append(loading_overlay_left)
-        image_stack_right.controls.append(loading_overlay_right)
-        
-        # Обновляем UI, чтобы показать загрузочную анимацию
-        page.update()
-        
-        print(f" >> Начинаем обработку изображения: `{state.current_image_path}`.")
-        image = cv2.imread(state.current_image_path)
-        script_dir = os.path.dirname(os.path.dirname(__file__))
-        output_image_path = os.path.join(script_dir, "storage", "output_image.png")
-        visualization_path = os.path.join(script_dir, "storage", "visualization.png")
-        
-        # 2. Создаем целевую сетку координат
-        height, width = image.shape[:2]
-        grid = create_coordinate_grid(height, width)
-
-        # 3. Нормализуем координаты сетки для параметров s и t
-        normalized_grid = normalize_grid_coordinates(grid, width, height)
-        
-        # 4. Построение функции трансформации
-        prep_edge_top, prep_edge_bottom, prep_edge_left, prep_edge_right = preprocess_edges_from_main(**state.edge_points_lists)
-        mesh_func = build_fast_mesh_function(prep_edge_top, prep_edge_bottom, prep_edge_left, prep_edge_right)
-        
-        # 5. Визуализация граничных сплайнов
-        print(f" >> Визуализация сетки...")
-        
-        # Визуализация сетки трансформации
-        visualization = visualize_grid(
-            image, 
-            mesh_func, 
-            n_points=10, 
-            color_horizontal=CvColors.RED, 
-            color_vertical=CvColors.BLUE
-        )
-        
-        # Визуализация граничных точек
-        edge_points = [prep_edge_top, prep_edge_bottom, prep_edge_left, prep_edge_right]
-        colors = [CvColors.RED, CvColors.BLUE, CvColors.GREEN, CvColors.ORANGE]
-        visualization = visualize_boundary_points(visualization, edge_points, colors)
-
-        # Сохраняем визуализацию трансформированных сплайнов и отображаем её
-        cv2.imwrite(visualization_path, visualization)
-        image_stack_left.controls[0].src = visualization_path
-        page.update()
-        if len(image_stack_left.controls) > 1:
-            image_stack_left.controls.pop()
-        page.update()
-        print(f" >> Визуализация сетки завершена: `{visualization_path}`.")
-        
-        # 7. Вычисляем map_x и map_y для cv2.remap
-        print(f" >> Вычисляем map_x и map_y для cv2.remap...")
-        start_time = time.time()
-        map_x, map_y = compute_remap_maps(mesh_func, normalized_grid)
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f" >> Вычисление map_x и map_y завершено ({execution_time:.2f} сек.).")
-
-        # 8. Применяем ремапинг с кубической интерполяцией
-        print(f" >> Применяем cv2.remap с кубической интерполяцией...")
-        start_time = time.time()
-        result = apply_remap(image, map_x, map_y)
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f" >> Применение cv2.remap завершено ({execution_time:.2f} сек.).")
-
-        # 9. Сохраняем результат
-        cv2.imwrite(output_image_path, result)
-        image_stack_right.controls[0].src = output_image_path
-        page.update()
-        if len(image_stack_right.controls) > 1:
-            image_stack_right.controls.pop()
-        page.update()
+    image_stack_left.controls[0].src = state.current_image_path
+    image_stack_right.controls[0].src = state.current_image_path
     
-        print(f" >> Результат сохранен в `{output_image_path}`.")
+    loading_overlay_left = create_loading_overlay()
+    loading_overlay_right = create_loading_overlay()
+    
+    image_stack_left.controls.append(loading_overlay_left)
+    image_stack_right.controls.append(loading_overlay_right)
+    
+    page.update()
+    
+    image = cv2.imread(state.current_image_path)
+    script_dir = os.path.dirname(os.path.dirname(__file__))
+    output_image_path = os.path.join(script_dir, "storage", "output_image.png")
+    visualization_path = os.path.join(script_dir, "storage", "visualization.png")
+    
+    height, width = image.shape[:2]
+    grid = create_coordinate_grid(height, width)
 
-        page.update()
-    else:
-        page.update()
+    normalized_grid = normalize_grid_coordinates(grid, width, height)
+    
+    prep_edge_top, prep_edge_bottom, prep_edge_left, prep_edge_right = preprocess_edges(**state.edge_points_lists)
+    mesh_func = build_fast_mesh_function(prep_edge_top, prep_edge_bottom, prep_edge_left, prep_edge_right)
+
+    visualization = visualize_grid(
+        image, 
+        mesh_func, 
+        n_points=10, 
+        color_horizontal=CvColors.RED, 
+        color_vertical=CvColors.BLUE
+    )
+
+    edge_points = [prep_edge_top, prep_edge_bottom, prep_edge_left, prep_edge_right]
+    colors = [CvColors.RED, CvColors.BLUE, CvColors.GREEN, CvColors.ORANGE]
+    visualization = visualize_boundary_points(visualization, edge_points, colors)
+    
+    cv2.imwrite(visualization_path, visualization)
+    image_stack_left.controls[0].src = visualization_path
+    page.update()
+    if len(image_stack_left.controls) > 1:
+        image_stack_left.controls.pop()
+    page.update()
+    
+    map_x, map_y = compute_remap_maps(mesh_func, normalized_grid)
+    result = apply_remap(image, map_x, map_y)
+
+    cv2.imwrite(output_image_path, result)
+    image_stack_right.controls[0].src = output_image_path
+    page.update()
+    if len(image_stack_right.controls) > 1:
+        image_stack_right.controls.pop()
+    page.update()
 
 def create_view_page_content(page: ft.Page, image_stack_left:ft.Stack,
                              image_stack_right:ft.Stack, state: AppState):

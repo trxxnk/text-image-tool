@@ -33,6 +33,35 @@ def main(page: ft.Page):
             view_container.visible = False
 
         else:  # Выбран режим "Выравнивание"
+            if not state.current_image_path:
+                e.control.selected_index = 0
+                dialog = ft.AlertDialog(
+                    title=ft.Text("Загрузите изображение"),
+                    content=ft.Text("Для применения трансформации необходимо загрузить изображение."),
+                    actions=[
+                        ft.TextButton("OK", on_click=lambda _: page.close(dialog))
+                    ],
+                    actions_alignment=ft.MainAxisAlignment.END
+                )
+                page.open(dialog)
+                page.update()
+                return
+            
+            if not state.check_points():
+                e.control.selected_index = 0
+                dialog = ft.AlertDialog(
+                    title=ft.Text("Недостаточно точек"),
+                    content=ft.Text("Для применения трансформации необходимо отметить\n"
+                                    "минимум по 2 точки для каждой границы."),
+                    actions=[
+                        ft.TextButton("OK", on_click=lambda _: page.close(dialog))
+                    ],
+                    actions_alignment=ft.MainAxisAlignment.END
+                )
+                page.open(dialog)
+                page.update()
+                return
+    
             input_container.visible = False
             view_container.visible = True
             process_on_tab_change(page, image_stack_left, image_stack_right, state) # TODO
